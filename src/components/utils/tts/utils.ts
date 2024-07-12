@@ -1,26 +1,42 @@
+import { useState } from "react";
+
 export const getSpeech = (
-  text: string, 
-  lang: string, 
+  voices: SpeechSynthesisVoice[],
+  text: string,
+  lang: string,
   onEndCallback?: () => void
 ) => {
   const speech = (txt: string | undefined) => {
-    // const lang = "ko-KR";
-    // const lang = "ja-JP";
-    // const lang = "en-US";
-    window.speechSynthesis.cancel()
-
     const utterThis = new SpeechSynthesisUtterance(txt);
 
     utterThis.lang = lang;
 
-    const voices = window.speechSynthesis.getVoices();
-    if (lang === 'ja-JP') {
-      voices.filter((e) =>{if(e.lang === 'ja-JP' && e.name === 'Google 日本語') utterThis.voice = e;})
-    } else if(lang === 'en-US'){
-      voices.filter((e) =>{if(e.lang === 'en-US' && e.name === 'Google US English') utterThis.voice = e;})
-    }
-    else {
-      return;
+    const kr_voice = voices.find(
+      (elem) => elem.name === '유나'
+    );
+    const jp_voice = voices.find(
+      (elem) => elem.name === 'Google 日本語'
+    );
+    const en_voice = voices.find(
+      (elem) => elem.name === 'Google US English'
+    );
+
+    switch (lang) {
+      case 'kr':
+        if (kr_voice)
+          utterThis.voice = kr_voice;
+        utterThis.lang = "ko-KR"
+        break;
+      case 'jp':
+        if (jp_voice)
+          utterThis.voice = jp_voice;
+        utterThis.lang = "ja-JP"
+        break;
+      case 'en':
+        if (en_voice)
+          utterThis.voice = en_voice;
+        utterThis.lang = "en-US"
+        break;
     }
 
     // 음성 재생 완료 시 호출되는 콜백 함수

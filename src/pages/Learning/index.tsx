@@ -1,5 +1,5 @@
 import { Button, IconButton, Stack, Typography } from "@mui/material";
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useState } from "react";
 import { getSpeech } from "../../components/utils/tts/utils";
 import ArrowBackIosNewIcon from '@mui/icons-material/ArrowBackIosNew';
 import { useNavigate } from "react-router-dom";
@@ -35,39 +35,6 @@ const Learning = () => {
     })()
   }, [page])
 
-  // 공부 페이지 들어오거나 다음 클릭 했을 때 음독, 훈독, 의미 읽어주는 로직
-  useEffect(() => {
-    (async () => {
-      if (words) {
-        window.speechSynthesis.cancel();
-        
-        for (let i = 0; i < words[index].kunYomi.length; i++) {
-          const originalString: string = words[index].kunYomi[i];
-          const modifiedString: string = originalString.replace(/\./g, "");
-
-          await speech(modifiedString, "ja-JP")
-          await delay(1000);
-        }
-        await delay(300);
-        for (let i = 0; i < words[index].onYomi.length; i++) {
-          await speech(words[index].onYomi[i], "ja-JP")
-          await delay(1000);
-        }
-        await delay(300);
-        for (let i = 0; i < words[index].meanings.length; i++) {
-          if (i === words[index].meanings.length - 1) {
-            await speech(words[index].meanings[i], "en-US")
-            await delay(1000);
-          } else {
-            await speech(words[index].meanings[i], "en-US")
-            await delay(1000);
-          }
-        }
-        handleNextWord()
-      }
-    })()
-  }, [words, index])
-
   useEffect(() => {
     const loadVoices = () => {
       const voices = window.speechSynthesis.getVoices();
@@ -78,16 +45,35 @@ const Learning = () => {
     if (window.speechSynthesis.onvoiceschanged !== undefined) {
       window.speechSynthesis.onvoiceschanged = loadVoices;
     }
-  }, []);
+  }, [words, index]);
 
-  const speech = (text: string, lang: string, end?: () => void) => {
-    if (voices.length > 0) {
-      getSpeech(text, lang, end);
-    } else {
-      console.error("Voices not loaded yet");
-    }
-  }
+  useEffect(() => {
+    (async () => {
+      if (voices.length > 0 && words) {
+        for(let i=0; words[index].kunYomi.length > i; i++){
+          let kunYomiWithoutDot = words[index].kunYomi.map(item => item.replace(/\./g, ''));
+          await getSpeech(voices, kunYomiWithoutDot[i], 'jp')
+        }
+        for(let i=0; words[index].onYomi.length > i; i++){
+          await getSpeech(voices, words[index].onYomi[i], 'jp')
+        }
+        for(let i=0; words[index].meanings.length > i; i++){
+          console.log('i',i)
+          console.log(words[index].meanings.length)
+          if(words[index].meanings.length === i+1){
+            await getSpeech(voices, words[index].meanings[i], 'en', handleNextWord)
+            return
+          }
+          await getSpeech(voices, words[index].meanings[i], 'en')
+        }
+      }
+      return () => {
+        window.speechSynthesis.cancel(); // 현재 음성 합성 작업 취소
+      };
+    })()
+  }, [voices])
 
+  // 스피치 일시정지
   const pauseSpeech = () => {
     if (!isPaused) {
       window.speechSynthesis.pause();
@@ -95,6 +81,7 @@ const Learning = () => {
     }
   };
 
+  // 스피치 재생
   const resumeSpeech = () => {
     if (isPaused) {
       window.speechSynthesis.resume();
@@ -102,6 +89,7 @@ const Learning = () => {
     }
   };
 
+  // 메인 페이지로 이동
   const handleBack = async () => {
     window.speechSynthesis.pause();
     window.speechSynthesis.cancel()
@@ -109,17 +97,19 @@ const Learning = () => {
     navigate(`/`)
   }
 
+  // 다음 워드 출력
   const handleNextWord = () => {
+    window.speechSynthesis.cancel();
     if (index < pageSize - 1) {
-      window.speechSynthesis.cancel()
       setIsPaused(false)
       setIndex(pre => pre + 1)
     }
   }
 
+  // 이전 워드 출력
   const handlePreWord = () => {
+    window.speechSynthesis.cancel()
     if (index > 0) {
-      window.speechSynthesis.cancel()
       setIsPaused(false)
       setIndex(pre => pre - 1)
     }
