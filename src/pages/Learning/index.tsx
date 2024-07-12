@@ -20,59 +20,6 @@ const Learning = () => {
 
   const navigate = useNavigate()
 
-  const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
-
-  // 공부시작하기 클릭으로 페이지 이동했을 때 일치하는 페이지의 단어 가져오기
-  useEffect(() => {
-    (async () => {
-      try {
-        const result = await getWordContents(page)
-        setWords(result.body)
-        setPageSize(result.meta.pageSize)
-      } catch (e) {
-        console.log('Error : ', e)
-      }
-    })()
-  }, [page])
-
-  useEffect(() => {
-    const loadVoices = () => {
-      const voices = window.speechSynthesis.getVoices();
-      setVoices(voices);
-    };
-
-    loadVoices();
-    if (window.speechSynthesis.onvoiceschanged !== undefined) {
-      window.speechSynthesis.onvoiceschanged = loadVoices;
-    }
-  }, [words, index]);
-
-  useEffect(() => {
-    (async () => {
-      if (voices.length > 0 && words) {
-        for(let i=0; words[index].kunYomi.length > i; i++){
-          let kunYomiWithoutDot = words[index].kunYomi.map(item => item.replace(/\./g, ''));
-          await getSpeech(voices, kunYomiWithoutDot[i], 'jp')
-        }
-        for(let i=0; words[index].onYomi.length > i; i++){
-          await getSpeech(voices, words[index].onYomi[i], 'jp')
-        }
-        for(let i=0; words[index].meanings.length > i; i++){
-          console.log('i',i)
-          console.log(words[index].meanings.length)
-          if(words[index].meanings.length === i+1){
-            await getSpeech(voices, words[index].meanings[i], 'en', handleNextWord)
-            return
-          }
-          await getSpeech(voices, words[index].meanings[i], 'en')
-        }
-      }
-      return () => {
-        window.speechSynthesis.cancel(); // 현재 음성 합성 작업 취소
-      };
-    })()
-  }, [voices])
-
   // 스피치 일시정지
   const pauseSpeech = () => {
     if (!isPaused) {
@@ -114,6 +61,91 @@ const Learning = () => {
       setIndex(pre => pre - 1)
     }
   }
+
+  // ------------------------------------ useEffect ------------------------------------
+
+  // 키보드 조작
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      switch (event.key) {
+        case 'ArrowRight':
+          handleNextWord();
+          break;
+        case 'ArrowLeft':
+          handlePreWord();
+          break;
+        case ' ':
+          event.preventDefault(); // 스페이스바의 기본 스크롤 방지
+          if (isPaused) {
+            resumeSpeech();
+          } else {
+            pauseSpeech();
+          }
+          break;
+        default:
+          break;
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [handleNextWord, handlePreWord, pauseSpeech, resumeSpeech, isPaused]);
+
+  // 공부시작하기 클릭으로 페이지 이동했을 때 일치하는 페이지의 단어 가져오기
+  useEffect(() => {
+    (async () => {
+      try {
+        const result = await getWordContents(page)
+        setWords(result.body)
+        setPageSize(result.meta.pageSize)
+      } catch (e) {
+        console.log('Error : ', e)
+      }
+    })()
+  }, [page])
+
+  // 사용가능한 보이스 리스트 로드하기
+  useEffect(() => {
+    const loadVoices = () => {
+      const voices = window.speechSynthesis.getVoices();
+      setVoices(voices);
+    };
+
+    loadVoices();
+    if (window.speechSynthesis.onvoiceschanged !== undefined) {
+      window.speechSynthesis.onvoiceschanged = loadVoices;
+    }
+  }, [words, index]);
+
+  // 워드 스피치 작동시키기
+  useEffect(() => {
+    (async () => {
+      if (voices.length > 0 && words) {
+        for (let i = 0; words[index].kunYomi.length > i; i++) {
+          let kunYomiWithoutDot = words[index].kunYomi.map(item => item.replace(/\./g, ''));
+          await getSpeech(voices, kunYomiWithoutDot[i], 'jp')
+        }
+        for (let i = 0; words[index].onYomi.length > i; i++) {
+          await getSpeech(voices, words[index].onYomi[i], 'jp')
+        }
+        for (let i = 0; words[index].meanings.length > i; i++) {
+          if (words[index].meanings.length === i + 1) {
+            await getSpeech(voices, words[index].meanings[i], 'en', handleNextWord)
+            return
+          }
+          await getSpeech(voices, words[index].meanings[i], 'en')
+        }
+      }
+      return () => {
+        window.speechSynthesis.cancel();
+      };
+    })()
+  }, [voices])
+
+  // ------------------------------------ useEffect ------------------------------------
 
   return (
     words ?
@@ -168,7 +200,7 @@ const Learning = () => {
             })}
           </Stack>
           <Stack direction='row' spacing={3} flex={0.3} sx={{ justifyContent: 'space-evenly' }}>
-            <Button onClick={handlePreWord}>이전</Button>
+            <Button onClick={handlePreWord} tabIndex={0}>이전</Button>
             {
               isPaused ?
                 <Button onClick={resumeSpeech}>재생</Button> :
